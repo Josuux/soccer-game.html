@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>8-Bit Soccer Game</title>
+<style>
+  body {
+    margin: 0;
+    background-color: #228B22; /* Soccer field green */
+    font-family: sans-serif;
+    text-align: center;
+    user-select: none;
+  }
+  canvas {
+    display: block;
+    margin: 0 auto;
+    background-color: #2E8B57;
+    z-index: 0;
+  }
+  #menu {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 10;
+  }
+  button {
+    font-size: 20px;
+    padding: 10px 20px;
+    margin: 10px;
+    cursor: pointer;
+  }
+</style>
+</head>
+<body>
+<div id="menu">
+  <button id="playBtn">Play</button><br>
+  <button id="difficultyBtn">Difficulty: Easy</button>
+</div>
+<canvas id="gameCanvas" width="800" height="600"></canvas>
+
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+let gameState = "menu";
+let difficulty = "easy";
+let player = { x: 100, y: 300, size: 30, color: "blue", hasBall: false };
+let ball = { x: 400, y: 300, radius: 10, color: "white" };
+let bots = [];
+let botSpeed = 3;
+let lastElastico = 0;
+let elasticoCooldown = 30000; // 30 seconds
+let goalkeeper = { x: 750, y: 270, width: 40, height: 60, speed: 4 };
+const numBots = 3;
+const keys = {};
+let mouseDown = false;
+
+// Input listeners
+document.addEventListener('keydown', (e) => keys[e.key.toLowerCase()] = true);
+document.addEventListener('keyup', (e) => keys[e.key.toLowerCase()] = false);
+document.addEventListener('mousedown', () => mouseDown = true);
+document.addEventListener('mouseup', () => mouseDown = false);
+
+// Initialize bots
+function initBots() {
+  bots = [];
+  for (let i = 0; i < numBots; i++) {
+    bots.push({ x: 650, y: 150 + i * 100, size: 30, color: "red", stunned: false, stunTime: 0 });
+  }
+}
+
+// Menu buttons
+document.getElementById('playBtn').addEventListener('click', () => {
+  gameState = "playing";
+  initBots();
+  document.getElementById('menu').style.display = 'none';
+});
+
+document.getElementById('difficultyBtn').addEventListener('click', () => {
+  if (difficulty === "easy") { difficulty = "medium"; botSpeed = 4; }
+  else if (difficulty === "medium") { difficulty = "hard"; botSpeed = 5; }
+  else if (difficulty === "hard") { difficulty = "nightmare"; botSpeed = 6; }
+  else { difficulty = "easy"; botSpeed = 3; }
+  document.getElementById('difficultyBtn').innerText = "Difficulty: " + difficulty.charAt(0).toUpperCase() + difficulty.slice(1);
+});
+
+// Main game loop
+function gameLoop() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  if (gameState === "playing") {
+    // Player movement
+    if (keys['w']) player.y -= 5;
+    if (keys['s']) player.y += 5;
+    if (keys['a']) player.x -= 5;
+    if (keys['d']) player.x += 5;
+
+    // Elastico move
+    if (keys['1'] && Date.now() - lastElastico > elasticoCooldown) {
+      console.log("Elastico Move!"); 
+      lastElastico = Date.now();
+    }
+
+    // Dribble bot
+    if (keys['q']) {
+      bots.forEach(bot => {
+        if (!bot.stunned && Math.abs(player.x - bot.x) < 50 && Math.abs(player.y - bot.y) < 50) {
+          bot.stunned = true;
+          bot.stunTime = Date.now();
+        }
+      });
+    }
+
+    // Shooting
+    if (keys['2'] && mouseDown) {
+      console.log("Shot Move!");
+    }
+
+    // Draw ball
+    ctx.fillStyle = ball.color;
+    ctx.beginPath();
+    ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Draw player
+    ctx.fillStyle = player.color;
+    ctx.fillRect(player.x, player.y, player.size, player.size);
+
+    // Draw bots
+    bots.forEach(bot => {
+      ctx.fillStyle = bot.stunned ? "yellow" : bot.color;
+      ctx.fillRect(bot.x, bot.y, bot.size, bot.size);
+
+      // Bot AI
+      if (!bot.stunned) {
+        if (player.x > bot.x) bot.x += botSpeed;
+        if (player.x < bot.x) bot.x -= botSpeed;
+        if (player.y > bot.y) bot.y += botSpeed;
+        if (player.y < bot.y) bot.y -= botSpeed;
+      } else if (Date.now() - bot.stunTime > 3000) {
+        bot.stunned = false;
+      }
+    });
+
+    // Draw goalkeeper
+    ctx.fillStyle = "black";
+    ctx.fillRect(goalkeeper.x, goalkeeper.y, goalkeeper.width, goalkeeper.height);
+
+    // Goalkeeper AI: follow ball vertically
+    if (ball.y > goalkeeper.y + goalkeeper.height / 2) goalkeeper.y += goalkeeper.speed;
+    if (ball.y < goalkeeper.y + goalkeeper.height / 2) goalkeeper.y -= goalkeeper.speed;
+
+    // Goal detection
+    if (ball.x + ball.radius > goalkeeper.x && ball.y > goalkeeper.y && ball.y < goalkeeper.y + goalkeeper.height) {
+      console.log("Goalkeeper saved!");
+    } else if (ball.x + ball.radius > canvas.width) {
+      console.log("Goal!");
+      ball.x = canvas.width/2; // reset ball
+      ball.y = canvas.height/2;
+    }
+  }
+
+  requestAnimationFrame(gameLoop);
+}
+
+// Start game loop
+gameLoop();
+</script>
+</body>
+</html>
